@@ -31,7 +31,7 @@ public class MovingSphere : MonoBehaviour
 
     Rigidbody rigidBody;
 
-    Vector3 velocity, desiredVelocity, contactNormal, steepNormal;
+    Vector3 velocity, desiredVelocity, contactNormal, steepNormal, upAxis;
 
     bool desiredJump;
 
@@ -92,6 +92,8 @@ public class MovingSphere : MonoBehaviour
 
     void FixedUpdate()
     {
+        upAxis = -Physics.gravity.normalized;
+
         UpdateState();
         AdjustVelocity();
 
@@ -141,9 +143,9 @@ public class MovingSphere : MonoBehaviour
         stepsSinceLastJump = 0;
         ++jumpPhase;
 
-        var jumpSpeed = Mathf.Sqrt(-2f * Physics.gravity.y * jumpHeight);
+        var jumpSpeed = Mathf.Sqrt(2f * Physics.gravity.magnitude * jumpHeight);
 
-        jumpDirection = (jumpDirection + Vector3.up).normalized;
+        jumpDirection = (jumpDirection + upAxis).normalized;
 
         var alignedSpeed = Vector3.Dot(velocity, jumpDirection);
 
@@ -162,9 +164,10 @@ public class MovingSphere : MonoBehaviour
         var speed = velocity.magnitude;
         if (speed > maxSnapSpeed) return false;
 
-        if (!Physics.Raycast(rigidBody.position, Vector3.down, out var hit, probeDistance, probeMask)) return false;
+        if (!Physics.Raycast(rigidBody.position, -upAxis, out var hit, probeDistance, probeMask)) return false;
 
-        if (hit.normal.y < GetMinDot(hit.collider.gameObject.layer)) return false;
+        var upDot = Vector3.Dot(upAxis, hit.normal);
+        if (upDot < GetMinDot(hit.collider.gameObject.layer)) return false;
 
         groundContactCount = 1;
         contactNormal = hit.normal;
@@ -180,8 +183,8 @@ public class MovingSphere : MonoBehaviour
         if (steepContactCount > 1)
         {
             steepNormal.Normalize();
-
-            if (steepNormal.y >= minGroundDotProduct)
+            var upDot = Vector3.Dot(upAxis, steepNormal);
+            if (upDot >= minGroundDotProduct)
             {
                 groundContactCount = 1;
                 contactNormal = steepNormal;
@@ -213,7 +216,7 @@ public class MovingSphere : MonoBehaviour
 
         else
         {
-            contactNormal = Vector3.up;
+            contactNormal = upAxis;
         }
     }
 
@@ -234,8 +237,8 @@ public class MovingSphere : MonoBehaviour
         for (var i = 0; i < collision.contactCount; ++i)
         {
             var normal = collision.GetContact(i).normal;
-
-            if (normal.y >= minDot)
+            var upDot = Vector3.Dot(upAxis, normal);
+            if (upDot >= minDot)
             {
                 ++groundContactCount;
 
